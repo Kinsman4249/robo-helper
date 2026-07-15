@@ -18,7 +18,7 @@ REM ============================================================
 set /a COUNT=0
 set "DEST_BASE="
 
-REM --- Parse command-line arguments (%~x strips surrounding quotes) ---
+REM --- Parse command-line arguments; the tilde modifier strips quotes ---
 :parse_args
 if "%~1"=="" goto args_done
 if /i "%~1"=="-source" goto opt_source

@@ -63,5 +63,15 @@ here should be written, see the changelog formatting guide in the
    destination such as C:\test:\folder" and causing robocopy ERROR 123. The
    script now strips all double quotes from each prompted source path and from
    the prompted destination before any further processing. Command-line values
-   were already unquoted by the %~ expansion, so this affects the interactive
+   were already unquoted by the tilde expansion, so this affects the interactive
    path only. Updated README.md to note that quoted and unquoted paths both work.
+
+### Batch parse fix (round five)
+9. Fixed a batch parse error in robocopy-batch.cmd that aborted the script
+   immediately on launch. A REM comment describing the argument parser contained
+   the literal text with a percent sign and tilde, and cmd expands percent
+   sequences even inside REM lines, so it tried to treat that text as
+   batch-parameter substitution and failed with "The following usage of the path
+   operator in batch-parameter substitution is invalid". The comment was
+   reworded to remove the percent sign. No executable logic changed; the genuine
+   numbered-argument expansions in the parser were already valid.

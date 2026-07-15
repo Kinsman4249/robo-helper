@@ -101,7 +101,7 @@ then hand the file to cmd.exe as shown below.
 ### One-line (elevated PowerShell)
 
 ```powershell
-$f = "$env:TEMP\\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f; & $env:ComSpec /c $f
+$f = "$env:TEMP\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f; & $env:ComSpec /c $f
 ```
 
 ### Multi-line (same thing, easier to read)
