@@ -1,4 +1,4 @@
-## Changelog
+# Changelog
 
 This file tracks real changes to this repository. For the rules on how entries
 here should be written, see the changelog formatting guide in the
@@ -13,7 +13,7 @@ here should be written, see the changelog formatting guide in the
    destination for clean path joins, creates the destination if it does not
    exist, prompts for source paths one per line ending on a blank line, and runs
    one robocopy job per source. Each job preserves the source path minus its
-   drive letter under the destination and runs with /B /E /XJ /XA:SH /XF *.ost
+   drive letter under the destination and runs with /B /E /XJ /XA:S /XF *.ost
    /R:0 /W:0, the detected thread count, /TEE to mirror console output, and
    /LOG+ to append all jobs into one timestamped log in the destination.
 2. Added README.md documenting what the script does, its requirements, the
@@ -26,7 +26,15 @@ here should be written, see the changelog formatting guide in the
    SECURITY.md, the bug report and feature request issue templates, and the pull
    request template.
 4. Added .github/workflows/release.yml, a tag-driven release workflow. Because
-   the repository ships only a batch script with nothing to compile, the
-   workflow runs on a single Ubuntu runner and uses git archive to package the
-   tagged commit into a .tar.gz and a .zip source snapshot, then attaches both
-   to a GitHub Release with auto-generated notes.
+   the repository ships only a batch script with nothing to compile, the matrix
+   is trimmed to a single Ubuntu runner and the build step uses git archive to
+   package the tagged commit into a .tar.gz and a .zip source snapshot, then
+   attaches both to a GitHub Release with auto-generated notes.
+
+### Attribute exclusion change (round two)
+5. Changed the robocopy attribute exclusion in robocopy-batch.cmd from /XA:SH to
+   /XA:S so that only System-attributed files are skipped and Hidden files are
+   now copied. This affects every per-job robocopy invocation. Updated README.md
+   to match, changing the flag reference in the usage block and rewording the
+   flag description to note that files which are both System and Hidden are still
+   skipped, since /XA:S excludes on the System attribute regardless of Hidden.

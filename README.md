@@ -15,8 +15,7 @@ while mirroring output to the console.
   backslash), then creates it if it does not exist.
 - Prompts for source paths, one per line, ending on a blank line.
 - Runs one robocopy job per source, preserving the source path minus its drive
-  letter under the destination (for example C:\updates copies to
-  <DEST>\updates).
+  letter under the destination (for example C:\updates copies to <DEST>\updates).
 - Writes a combined log named robocopy_<timestamp>.log in the destination and
   mirrors output to the console with /TEE.
 
@@ -33,13 +32,13 @@ PowerShell. It prompts for everything it needs.
 Per-job flags used:
 
 ```
-/B /E /XJ /XA:SH /XF *.ost /R:0 /W:0 /MT:<threads> /TEE /LOG+:<logfile>
+/B /E /XJ /XA:S /XF *.ost /R:0 /W:0 /MT:<threads> /TEE /LOG+:<logfile>
 ```
 
 - /B      Backup mode (uses the backup privilege).
 - /E      Copy subdirectories including empty ones.
 - /XJ     Exclude junction points (prevents recursion loops).
-- /XA:SH  Exclude System and Hidden files and folders.
+- /XA:S   Exclude System files and folders (hidden files are still copied).
 - /XF *.ost  Skip Outlook OST cache files.
 - /R:0 /W:0  No retries, no wait on failures.
 - /MT     Multithreaded copy, thread count set to the detected processor count.
@@ -101,6 +100,9 @@ Invoke-RestMethod 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/mai
 - The timestamp uses wmic os get LocalDateTime. WMIC is deprecated and removed
   on some newer Windows builds. If WMIC is absent the log is named
   robocopy_.log with no timestamp; the copy still runs.
+- /XA:S excludes any file with the System attribute regardless of its Hidden
+  attribute, so files that are both System and Hidden are still skipped. Only
+  files that are Hidden but not System are now copied.
 
 ## Contributing
 
