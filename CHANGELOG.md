@@ -38,3 +38,17 @@ here should be written, see the changelog formatting guide in the
    to match, changing the flag reference in the usage block and rewording the
    flag description to note that files which are both System and Hidden are still
    skipped, since /XA:S excludes on the System attribute regardless of Hidden.
+
+### Command-line flags and prompt order (round three)
+6. Added command-line flag parsing to robocopy-batch.cmd. The script accepts
+   -source (or -s), which can be repeated to queue multiple sources, and -dest
+   (or -d) for the destination base folder, plus -help (-h and /?) for usage.
+   Any value supplied on the command line skips its corresponding prompt, so the
+   script runs fully non-interactively when both flags are given. A flag
+   supplied without a value reports an error and prints usage, and unknown
+   arguments are reported and skipped rather than aborting the run.
+7. Reordered the interactive prompts so source paths are requested before the
+   destination, matching robocopy's source-then-destination argument order. The
+   destination prompt and the timestamped log path construction now run after
+   the source list is collected. README.md was updated with a command-line usage
+   section and the reordered prompt description.

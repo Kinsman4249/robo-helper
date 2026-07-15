@@ -2,18 +2,22 @@
 
 An interactive Windows batch script that runs robocopy jobs with backup-mode
 defaults. It detects the machine's logical processor count for the /MT thread
-count, prompts for a destination folder and a list of source paths, requires an
+count, prompts for a list of source paths and a destination folder, requires an
 elevated prompt, and writes a single combined timestamped log to the destination
-while mirroring output to the console.
+while mirroring output to the console. Source and destination can also be passed
+as command-line flags for non-interactive runs.
 
 ## What it does
 
 - Requires an elevated (Administrator) prompt and exits if it is not elevated.
+- Accepts -source/-s and -dest/-d command-line flags; anything supplied on the
+  command line skips the matching prompt.
 - Detects logical processors via NUMBER_OF_PROCESSORS and clamps /MT to the
   valid 1-128 range.
-- Prompts for a destination base folder (re-prompts if blank, strips a trailing
-  backslash), then creates it if it does not exist.
-- Prompts for source paths, one per line, ending on a blank line.
+- Prompts for source paths first (one per line, blank line ends), matching
+  robocopy's source-then-destination order.
+- Prompts for a destination base folder next (re-prompts if blank, strips a
+  trailing backslash), then creates it if it does not exist.
 - Runs one robocopy job per source, preserving the source path minus its drive
   letter under the destination (for example C:\updates copies to <DEST>\updates).
 - Writes a combined log named robocopy_<timestamp>.log in the destination and
@@ -27,7 +31,8 @@ while mirroring output to the console.
 ## Usage (local)
 
 Download robocopy-batch.cmd, then run it from an elevated Command Prompt or
-PowerShell. It prompts for everything it needs.
+PowerShell. With no arguments it prompts for source paths first, then the
+destination.
 
 Per-job flags used:
 
@@ -48,6 +53,32 @@ Per-job flags used:
 Note: /COPY and /DCOPY are left at robocopy defaults (/COPY:DAT and /DCOPY:DA),
 which copy Data, Attributes, and Timestamps. ACLs, owner, and auditing are not
 copied. Add /COPY:DATSOU /DCOPY:DAT if you need those preserved.
+
+## Command-line usage
+
+The script accepts flags so it can run without prompts:
+
+```
+robocopy-batch.cmd [-source PATH] [-dest PATH]
+```
+
+- -source, -s   Source path. Repeat the flag to queue multiple sources.
+- -dest,   -d   Destination base folder.
+- -help,   -h   Show usage.
+
+Examples:
+
+```
+REM Fully non-interactive, two sources
+robocopy-batch.cmd -source "C:\Data_Bin" -source "C:\temp" -dest "D:\backup"
+
+REM Source only; the destination is prompted
+robocopy-batch.cmd -s "C:\updates"
+```
+
+If -source is omitted the script prompts for source paths first, then the
+destination, matching robocopy's argument order. A flag given without a value
+prints an error and usage; unknown arguments are reported and skipped.
 
 ## Run from PowerShell (download and run)
 
@@ -75,7 +106,7 @@ $f = "$env:TEMP\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kins
 $f = Join-Path $env:TEMP 'robocopy-batch.cmd'
 Invoke-RestMethod 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f
 
-# Run it through cmd.exe. The script prompts for destination and source paths.
+# Run it through cmd.exe. The script prompts for source paths, then destination.
 & $env:ComSpec /c $f
 ```
 

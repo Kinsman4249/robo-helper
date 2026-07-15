@@ -3,14 +3,55 @@ setlocal enabledelayedexpansion
 
 REM ============================================================
 REM robocopy-batch.cmd
-REM 1. Requires an elevated (admin) prompt; exits if not.
-REM 2. Detects logical processors (threads) for /MT.
-REM 3. Prompts for a destination base folder.
-REM 4. Prompts for source paths (one per line, blank line ends).
+REM 1. Accepts -source/-s and -dest/-d command-line flags.
+REM 2. Requires an elevated (admin) prompt; exits if not.
+REM 3. Detects logical processors (threads) for /MT.
+REM 4. Prompts for source paths first (blank line ends), then
+REM    the destination, matching robocopy's source-then-dest order.
 REM 5. Always uses backup mode (/B).
 REM 6. Logs to a timestamped file in the destination folder and
 REM    mirrors output to the console via /TEE.
 REM ============================================================
+
+set /a COUNT=0
+set "DEST_BASE="
+
+REM --- Parse command-line arguments ---
+:parse_args
+if "%~1"=="" goto args_done
+if /i "%~1"=="-source" goto opt_source
+if /i "%~1"=="-s"      goto opt_source
+if /i "%~1"=="-dest"   goto opt_dest
+if /i "%~1"=="-d"      goto opt_dest
+if /i "%~1"=="-help"   goto usage
+if /i "%~1"=="-h"      goto usage
+if /i "%~1"=="/?"      goto usage
+echo Unknown argument: %~1
+shift
+goto parse_args
+
+:opt_source
+if "%~2"=="" (
+    echo ERROR: -source requires a value.
+    goto usage
+)
+set /a COUNT+=1
+set "SRC[!COUNT!]=%~2"
+shift
+shift
+goto parse_args
+
+:opt_dest
+if "%~2"=="" (
+    echo ERROR: -dest requires a value.
+    goto usage
+)
+set "DEST_BASE=%~2"
+shift
+shift
+goto parse_args
+
+:args_done
 
 REM --- Require elevation; net session fails for non-admins ---
 net session >nul 2>&1
@@ -22,15 +63,32 @@ if %errorlevel% neq 0 (
 
 REM --- Detect number of logical processors (threads) ---
 set "THREADS=%NUMBER_OF_PROCESSORS%"
-
-REM --- robocopy /MT only accepts 1-128, so clamp the value ---
 if %THREADS% GTR 128 set "THREADS=128"
 if %THREADS% LSS 1 set "THREADS=1"
 
 echo Detected %NUMBER_OF_PROCESSORS% logical processors. Using /MT:%THREADS%.
 echo.
 
-REM --- Prompt for destination base folder (re-prompt if blank) ---
+REM --- Collect source paths first (like robocopy). Skip if given on CLI. ---
+if %COUNT% GTR 0 goto have_sources
+echo Enter source paths, one per line.
+echo Press ENTER on a blank line to finish.
+echo.
+:read_loop
+set "line="
+set /p "line=Source: "
+if not defined line goto have_sources
+set /a COUNT+=1
+set "SRC[!COUNT!]=!line!"
+goto read_loop
+:have_sources
+if %COUNT%==0 (
+    echo No source paths entered. Exiting.
+    goto end
+)
+
+REM --- Destination base folder. Skip prompt if given on CLI. ---
+if defined DEST_BASE goto have_dest
 :dest_loop
 set "DEST_BASE="
 set /p "DEST_BASE=Destination base folder: "
@@ -38,6 +96,7 @@ if not defined DEST_BASE (
     echo Destination cannot be blank.
     goto dest_loop
 )
+:have_dest
 
 REM --- Strip a trailing backslash if present, for clean joins ---
 if "%DEST_BASE:~-1%"=="\" set "DEST_BASE=%DEST_BASE:~0,-1%"
@@ -51,29 +110,8 @@ for /f %%t in ('wmic os get LocalDateTime ^| findstr /r "^[0-9]"') do set "DT=%%
 set "STAMP=%DT:~0,8%_%DT:~8,6%"
 set "LOGFILE=%DEST_BASE%\robocopy_%STAMP%.log"
 
+echo.
 echo Logging to: %LOGFILE%
-echo.
-echo Enter source paths, one per line.
-echo Press ENTER on a blank line to finish.
-echo.
-
-REM --- Read source paths into an indexed pseudo-array ---
-set /a COUNT=0
-:read_loop
-set "line="
-set /p "line=Source: "
-if not defined line goto run
-set /a COUNT+=1
-set "SRC[!COUNT!]=!line!"
-goto read_loop
-
-:run
-if %COUNT%==0 (
-    echo No source paths entered. Exiting.
-    goto end
-)
-
-echo.
 echo Starting %COUNT% robocopy job(s) to %DEST_BASE% ...
 echo.
 
@@ -96,6 +134,19 @@ for /l %%i in (1,1,%COUNT%) do (
 
 echo.
 echo All jobs complete. Log saved to %LOGFILE%.
+goto end
+
+:usage
+echo.
+echo Usage: robocopy-batch.cmd [-source PATH] [-dest PATH]
+echo.
+echo   -source, -s   Source path. Repeat the flag for multiple sources.
+echo   -dest,   -d   Destination base folder.
+echo   -help,   -h   Show this help.
+echo.
+echo If -source is omitted you are prompted for source paths first, then for
+echo the destination, matching robocopy's source-then-destination order.
+echo Both flags may be combined for a fully non-interactive run.
 
 :end
 endlocal
