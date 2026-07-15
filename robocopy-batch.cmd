@@ -8,15 +8,17 @@ REM 2. Requires an elevated (admin) prompt; exits if not.
 REM 3. Detects logical processors (threads) for /MT.
 REM 4. Prompts for source paths first (blank line ends), then
 REM    the destination, matching robocopy's source-then-dest order.
-REM 5. Always uses backup mode (/B).
-REM 6. Logs to a timestamped file in the destination folder and
+REM 5. Strips surrounding quotes from pasted paths (Explorer
+REM    "Copy as path" wraps paths in double quotes).
+REM 6. Always uses backup mode (/B).
+REM 7. Logs to a timestamped file in the destination folder and
 REM    mirrors output to the console via /TEE.
 REM ============================================================
 
 set /a COUNT=0
 set "DEST_BASE="
 
-REM --- Parse command-line arguments ---
+REM --- Parse command-line arguments (%~x strips surrounding quotes) ---
 :parse_args
 if "%~1"=="" goto args_done
 if /i "%~1"=="-source" goto opt_source
@@ -78,6 +80,9 @@ echo.
 set "line="
 set /p "line=Source: "
 if not defined line goto have_sources
+REM Strip any double quotes pasted from Explorer "Copy as path"
+set "line=!line:"=!"
+if not defined line goto read_loop
 set /a COUNT+=1
 set "SRC[!COUNT!]=!line!"
 goto read_loop
@@ -92,6 +97,12 @@ if defined DEST_BASE goto have_dest
 :dest_loop
 set "DEST_BASE="
 set /p "DEST_BASE=Destination base folder: "
+if not defined DEST_BASE (
+    echo Destination cannot be blank.
+    goto dest_loop
+)
+REM Strip any double quotes pasted from Explorer "Copy as path"
+set "DEST_BASE=!DEST_BASE:"=!"
 if not defined DEST_BASE (
     echo Destination cannot be blank.
     goto dest_loop
@@ -143,6 +154,9 @@ echo.
 echo   -source, -s   Source path. Repeat the flag for multiple sources.
 echo   -dest,   -d   Destination base folder.
 echo   -help,   -h   Show this help.
+echo.
+echo Paths may be quoted or unquoted; surrounding quotes are stripped
+echo automatically so paths pasted from Explorer work as-is.
 echo.
 echo If -source is omitted you are prompted for source paths first, then for
 echo the destination, matching robocopy's source-then-destination order.

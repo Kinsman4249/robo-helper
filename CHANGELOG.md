@@ -52,3 +52,16 @@ here should be written, see the changelog formatting guide in the
    destination prompt and the timestamped log path construction now run after
    the source list is collected. README.md was updated with a command-line usage
    section and the reordered prompt description.
+
+### Quoted path handling (round four)
+8. Fixed handling of quoted paths in robocopy-batch.cmd. Paths pasted from
+   Windows Explorer via Copy as path or shift-right-click arrive wrapped in
+   double quotes, and the interactive prompt previously stored those quotes
+   verbatim. The drive-letter strip that builds each destination (removing the
+   first two characters of the source) then removed the opening quote and the
+   drive letter instead of the drive letter and colon, producing an invalid
+   destination such as C:\test:\folder" and causing robocopy ERROR 123. The
+   script now strips all double quotes from each prompted source path and from
+   the prompted destination before any further processing. Command-line values
+   were already unquoted by the %~ expansion, so this affects the interactive
+   path only. Updated README.md to note that quoted and unquoted paths both work.

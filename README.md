@@ -12,6 +12,8 @@ as command-line flags for non-interactive runs.
 - Requires an elevated (Administrator) prompt and exits if it is not elevated.
 - Accepts -source/-s and -dest/-d command-line flags; anything supplied on the
   command line skips the matching prompt.
+- Strips surrounding double quotes from pasted paths, so paths copied from
+  Windows Explorer (Copy as path / shift-right-click) work whether quoted or not.
 - Detects logical processors via NUMBER_OF_PROCESSORS and clamps /MT to the
   valid 1-128 range.
 - Prompts for source paths first (one per line, blank line ends), matching
@@ -66,6 +68,9 @@ robocopy-batch.cmd [-source PATH] [-dest PATH]
 - -dest,   -d   Destination base folder.
 - -help,   -h   Show usage.
 
+Paths may be quoted or unquoted; surrounding quotes are stripped automatically,
+so values pasted from Explorer work as-is.
+
 Examples:
 
 ```
@@ -96,7 +101,7 @@ then hand the file to cmd.exe as shown below.
 ### One-line (elevated PowerShell)
 
 ```powershell
-$f = "$env:TEMP\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f; & $env:ComSpec /c $f
+$f = "$env:TEMP\\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f; & $env:ComSpec /c $f
 ```
 
 ### Multi-line (same thing, easier to read)
