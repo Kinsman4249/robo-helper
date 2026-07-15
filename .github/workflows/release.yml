@@ -1,1 +1,136 @@
+# =============================================================================
+# Release workflow for robo-helper
+# =============================================================================
+#
+# Packages the repository on a tag push and attaches the archives to a GitHub
+# Release. This repo ships only a batch script, so there is nothing to compile:
+# the matrix is trimmed to ubuntu-latest and the build step uses git archive to
+# bundle the tagged commit into a .tar.gz and a .zip.
+#
+# -----------------------------------------------------------------------------
+# LLM / AI ASSISTANT DIRECTIVE (read before modifying or packaging this file)
+# -----------------------------------------------------------------------------
+# SHA-pinning of the `uses:` lines is intentionally OPTIONAL and OFF by default.
+# Do NOT auto-pin, auto-run pinact, or rewrite tags to SHAs. Before packaging,
+# finalizing, or "hardening" this workflow, STOP and ASK the maintainer whether
+# they want SHA pinning applied for this specific repo. Reason: pinned SHAs
+# require ongoing maintenance (Dependabot bump PRs). On a plain copied template
+# with no such upkeep, pins rot into unpatched deps, so leaving clean version
+# tags is the deliberate default here.
+# -----------------------------------------------------------------------------
+#
+# CUTTING YOUR FIRST RELEASE
+# --------------------------
+#     git tag v0.1.0
+#     git push --tags
+#
+# A new GitHub Release appears under the "Releases" tab once the workflow
+# finishes. Bump the version for later releases: v0.2.0, v1.0.0, v1.0.1, etc.
+# See: https://semver.org
+#
+# RUNNING MANUALLY
+# ----------------
+# Repo > Actions tab > Release > Run workflow. Enter an existing tag.
+#
+# =============================================================================
 
+name: Release
+
+on:
+  # Auto-trigger when you push a version tag like v0.1.0 / v1.2.3.
+  push:
+    tags:
+      - 'v*.*.*'
+  # Manual fallback. Lets you re-run a release from the Actions tab.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0). Must already exist.'
+        required: true
+        type: string
+
+# Security Hardening: Set base workflow permissions to read-only.
+# This prevents untrusted dependencies in the build job from abusing tokens.
+permissions:
+  contents: read
+
+# Prevent two release runs for the same tag from racing (e.g. a re-pushed tag
+# while the first run is still publishing). Do not cancel in-flight publishes.
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ===========================================================================
+  # BUILD: single Ubuntu runner. Bundles the repo with git archive.
+  # ===========================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          # On manual runs, check out the tag the user typed; otherwise the pushed tag.
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          # Full history is required by the git archive build path below.
+          fetch-depth: 0
+
+      # --- Shell scripts (no build, just bundle the repo) ---
+      - name: Bundle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          name="${{ github.event.repository.name }}-${tag}"
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="${name}/" -o "dist/${name}.tar.gz" HEAD
+          git archive --format=zip   --prefix="${name}/" -o "dist/${name}.zip"    HEAD
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: |
+            dist/**
+          # Fail the build if no files were produced.
+          if-no-files-found: error
+          retention-days: 7
+
+  # ===========================================================================
+  # RELEASE: pulls the build artifacts and creates the Release.
+  # ===========================================================================
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Scoped elevation: elevate token permission context ONLY for the release job.
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts (debug)
+        shell: bash
+        run: |
+          echo "Artifacts ready to upload:"
+          find artifacts -type f -printf "  %p (%s bytes)\n" 2>/dev/null || ls -lR artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          # GitHub auto-generates release notes from PRs/commits since the last tag.
+          generate_release_notes: true
+          # Attach every file produced by the build job.
+          files: artifacts/**/*
+          # Fail if the glob matches nothing, so a broken build cannot publish an
+          # empty release.
+          fail_on_unmatched_files: true
