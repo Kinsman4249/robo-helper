@@ -1,57 +1,113 @@
-# .github-private
+# robo-helper
 
-Private home for **reusable community-health files and project templates** that get copied into Kinsman4249's public projects.
+An interactive Windows batch script that runs robocopy jobs with backup-mode
+defaults. It detects the machine's logical processor count for the /MT thread
+count, prompts for a destination folder and a list of source paths, requires an
+elevated prompt, and writes a single combined timestamped log to the destination
+while mirroring output to the console.
 
-If you're looking at this because you found a link from one of those projects: this repo is intentionally private. You don't need to look here, the project you came from has its own copy of whatever document you're after.
+## What it does
 
-## Quickstart
+- Requires an elevated (Administrator) prompt and exits if it is not elevated.
+- Detects logical processors via NUMBER_OF_PROCESSORS and clamps /MT to the
+  valid 1-128 range.
+- Prompts for a destination base folder (re-prompts if blank, strips a trailing
+  backslash), then creates it if it does not exist.
+- Prompts for source paths, one per line, ending on a blank line.
+- Runs one robocopy job per source, preserving the source path minus its drive
+  letter under the destination (for example C:\updates copies to
+  <DEST>\updates).
+- Writes a combined log named robocopy_<timestamp>.log in the destination and
+  mirrors output to the console with /TEE.
 
-**Starting a new project?** See [VSCODE_QUICKSTART.md](./VSCODE_QUICKSTART.md) for the full step-by-step walkthrough using VS Code: create the repo, clone it, copy the templates, make your first commit, and ship your first tagged release.
+## Requirements
 
-## What lives here
+- Windows (robocopy ships with Windows, no install needed).
+- An elevated prompt. Backup mode (/B) needs the backup privilege.
+
+## Usage (local)
+
+Download robocopy-batch.cmd, then run it from an elevated Command Prompt or
+PowerShell. It prompts for everything it needs.
+
+Per-job flags used:
 
 ```
-.
-|-- CHANGELOG.md                   - the actual changelog for this repo (not a template, real entries)
-|-- CHANGELOG_TEMPLATE.md          - formatting guide for changelog entries, copy and rename to CHANGELOG.md in a new project
-|-- CODE_OF_CONDUCT.md             - Contributor Covenant 2.1 + project-friendly summary
-|-- CONTRIBUTING.md                - Generic contribution guide
-|-- GIT_GITHUB_CHEATSHEET.md       - Practical git and GitHub command reference for everyday work
-|-- SECURITY.md                    - Vulnerability reporting policy
-|-- RELEASE_TEMPLATE_README.md     - How the release workflow template works
-|-- VSCODE_QUICKSTART.md           - New-project lifecycle in VS Code: create to release
-`-- .github/
-    |-- ISSUE_TEMPLATE/
-    |   |-- bug_report.md
-    |   `-- feature_request.md
-    |-- PULL_REQUEST_TEMPLATE.md
-    |-- workflows/
-    |   `-- release.yml            - this repo's OWN release workflow (packages source archives on a version tag)
-    `-- workflow-templates/
-        |-- release.yml            - reusable multi-language BUILD template copied into downstream code projects
-        `-- release.properties.json - registers the template in GitHub's workflow picker
+/B /E /XJ /XA:SH /XF *.ost /R:0 /W:0 /MT:<threads> /TEE /LOG+:<logfile>
 ```
 
-Each community-health file is written to be **project-agnostic**. Placeholders like <PROJECT_NAME>, <REPO_URL>, and <TESTING_INSTRUCTIONS> are filled in when the file is copied into a real project.
+- /B      Backup mode (uses the backup privilege).
+- /E      Copy subdirectories including empty ones.
+- /XJ     Exclude junction points (prevents recursion loops).
+- /XA:SH  Exclude System and Hidden files and folders.
+- /XF *.ost  Skip Outlook OST cache files.
+- /R:0 /W:0  No retries, no wait on failures.
+- /MT     Multithreaded copy, thread count set to the detected processor count.
+- /TEE    Mirror output to console and log at the same time.
+- /LOG+   Append every job to one combined log file.
 
-Note the two release.yml files are different. The one under .github/workflows/ is this repository's own release process; because this repo ships only text, it packages a source snapshot rather than building binaries. The one under .github/workflow-templates/ is the generic build template you copy into code projects.
+Note: /COPY and /DCOPY are left at robocopy defaults (/COPY:DAT and /DCOPY:DA),
+which copy Data, Attributes, and Timestamps. ACLs, owner, and auditing are not
+copied. Add /COPY:DATSOU /DCOPY:DAT if you need those preserved.
 
-## Workflow
+## Run from PowerShell (download and run)
 
-When starting a new public repo:
+For flexible deployment you can pull the script straight from GitHub and run it
+without cloning the repo. The script is a Windows batch file (.cmd), so it runs
+through cmd.exe. PowerShell execution policy does not apply to .cmd files, so no
+-ExecutionPolicy Bypass flag is needed here. The script performs its own
+elevation check and will exit if it is not run as Administrator, so launch it
+from an elevated PowerShell window.
 
-1. Follow [VSCODE_QUICKSTART.md](./VSCODE_QUICKSTART.md) for the step-by-step.
-2. Copy the relevant community-health files from this repo into the new repo (top-level for CODE_OF_CONDUCT.md / CONTRIBUTING.md / SECURITY.md, and .github/ for issue and PR templates).
-3. Copy CHANGELOG_TEMPLATE.md into the new repo, rename it to CHANGELOG.md, and clear out the example content so the new repo starts with a real, empty changelog from day one.
-4. Copy .github/workflow-templates/release.yml into your new repo at .github/workflows/release.yml.
-5. Find-and-replace the placeholders.
-6. Commit.
+Note: `irm | iex` does not work for this script. That idiom pipes text into the
+PowerShell parser, and a batch file is not PowerShell. Download to disk first,
+then hand the file to cmd.exe as shown below.
 
-When updating a community-health policy that should apply across all projects:
+### One-line (elevated PowerShell)
 
-1. Edit the canonical version here first.
-2. Open PRs to each downstream public repo to bring them into sync.
+```powershell
+$f = "$env:TEMP\robocopy-batch.cmd"; irm 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f; & $env:ComSpec /c $f
+```
 
-## Why a separate private repo
+### Multi-line (same thing, easier to read)
 
-GitHub natively supports a .github repo on user/org accounts that automatically applies community-health files to all public repos. That's nice in theory but couples every project to a single set of templates. Keeping these as **canonical sources you copy from** rather than **defaults that auto-apply** lets each project tweak its own templates (test commands, supported versions, etc.) without diverging from the originals here.
+```powershell
+# Download the script to the temp folder
+$f = Join-Path $env:TEMP 'robocopy-batch.cmd'
+Invoke-RestMethod 'https://raw.githubusercontent.com/Kinsman4249/robo-helper/main/robocopy-batch.cmd' -OutFile $f
+
+# Run it through cmd.exe. The script prompts for destination and source paths.
+& $env:ComSpec /c $f
+```
+
+### Notes and gotchas (PowerShell method)
+
+- Run from an elevated (Administrator) PowerShell. The script requires the admin
+  token for backup mode (/B) and exits with an error if it is not elevated.
+- Adjust the branch or tag in the URL if you are not tracking main (for example
+  a pinned release tag like v1.0.0 instead of main).
+- Verify the source before running. Downloading and executing a remote script
+  means trusting this repo and the TLS connection to raw.githubusercontent.com.
+  This is the same delivery pattern used by malware, so only run scripts whose
+  source you control or have reviewed.
+- The downloaded file lands in %TEMP%. Delete it afterward if you do not want it
+  left on the machine.
+
+## Notes and gotchas
+
+- Drive-letter source paths only. UNC paths like \\server\share do not map
+  cleanly under the drive-letter-strip logic.
+- Paths containing an exclamation mark break under delayed expansion.
+- The timestamp uses wmic os get LocalDateTime. WMIC is deprecated and removed
+  on some newer Windows builds. If WMIC is absent the log is named
+  robocopy_.log with no timestamp; the copy still runs.
+
+## Contributing
+
+See CONTRIBUTING.md. Report bugs and request features through the issue
+templates. Security issues go through the process in SECURITY.md, not public
+issues.
+
+## Changelog
+
+See CHANGELOG.md.
